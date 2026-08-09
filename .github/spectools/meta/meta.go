@@ -68,6 +68,7 @@ type Meta struct {
 	Owner     string   `yaml:"owner"`
 	Created   string   `yaml:"created"`
 	Parent    string   `yaml:"parent"`
+	Goal      *int     `yaml:"goal"`
 	Services  []string `yaml:"services"`
 	Contracts []string `yaml:"contracts"`
 }
@@ -143,6 +144,9 @@ func (m *Meta) Validate() []string {
 		issues = append(issues, "created 缺失")
 	} else if _, err := time.Parse(dateLayout, m.Created); err != nil {
 		issues = append(issues, fmt.Sprintf("created 日期格式非法: %q（应为 YYYY-MM-DD）", m.Created))
+	}
+	if m.Goal != nil && *m.Goal <= 0 {
+		issues = append(issues, fmt.Sprintf("goal 格式非法: %d（应为正整数，指向组织目标系统节点 id）", *m.Goal))
 	}
 	for _, s := range m.Services {
 		if strings.TrimSpace(s) == "" {

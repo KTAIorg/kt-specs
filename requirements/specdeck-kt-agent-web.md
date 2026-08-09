@@ -5,6 +5,7 @@ status: review
 owner: doudou
 created: 2026-08-09
 parent: null
+goal: null
 services: [kt-agent-web, kt-specs]
 contracts: []
 ---
@@ -33,7 +34,9 @@ Workflowy 下钻（Enter 节点即根，Esc 回上层）」的钻取骨架，
 
 ## 目标
 
-- 在 kt-agent-web 新增 SpecDeck：按模块/需求/设计/任务/证据五层钻取浏览。
+- 在 kt-agent-web 新增 SpecDeck：按目标/模块/需求/设计/任务/证据分层钻取浏览，
+  目标层复用 org 服务目标树（与 GoalDeck 同源），需求经 frontmatter `goal`
+  字段挂到目标节点。
 - 交互与 GoalDeck 同构：Enter 钻入、Esc 回上层、右侧焦点舱渲染文档全文。
 - 状态可视化与 GoalDeck 的 STATE_META 风格一致（色点 + 文案映射）。
 - 数据面为 kt-spec-runtime（KT bearer 鉴权）：runtime 直接从 GitHub 拉取

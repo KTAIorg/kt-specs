@@ -27,6 +27,9 @@ jobs:
           ref: feature/kt-spec-command
           path: kt-cli-src
       - name: 从源码构建 kt CLI
-        run: cd kt-cli-src && go build -o "$RUNNER_TEMP/kt" ./cmd/kt
+        run: |
+          cd kt-cli-src
+          go build -o "$RUNNER_TEMP/kt" ./cmd/kt
       - name: 校验 frontmatter schema 与状态转移
-        run: "$RUNNER_TEMP/kt" spec validate requirements designs
+        run: |
+          "$RUNNER_TEMP/kt" spec validate requirements designs

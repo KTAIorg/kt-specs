@@ -14,22 +14,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # 状态转移校验需要对照 git HEAD 版本
+          fetch-depth: 0
       - uses: actions/setup-go@v6
         with:
           go-version: stable
-      # TODO: KTAIorg/kt-cli#4 合入后，改回一行安装：
-      #   go install github.com/KTAIorg/kt-cli/cmd/kt@main
-      # 过渡期从 spec 分支源码构建，避免依赖未发版主分支。
-      - name: 拉取 kt CLI 源码（过渡：spec 分支）
-        uses: actions/checkout@v7
-        with:
-          repository: KTAIorg/kt-cli
-          ref: feature/kt-spec-command
-          path: kt-cli-src
-      - name: 从源码构建 kt CLI
-        run: |
-          cd kt-cli-src
-          go build -o "$RUNNER_TEMP/kt" ./cmd/kt
+      # 校验规则镜像自 KTAIorg/kt-cli internal/spec（字段契约事实源在
+      # kt-spec-driven-playbook）。kt-cli 为私有仓且组织级跨仓库凭据未就绪，
+      # TODO: 待 kt-cli 发布链路/跨仓库凭据就绪后改回 `kt spec validate`。
       - name: 校验 frontmatter schema 与状态转移
         run: |
-          "$RUNNER_TEMP/kt" spec validate requirements designs
+          cd .github/validator
+          go run . "$GITHUB_WORKSPACE/requirements" "$GITHUB_WORKSPACE/designs"

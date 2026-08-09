@@ -48,9 +48,11 @@ draft → review → approved → implementing → shipped
 
 ## 门禁
 
-- `Validate Specs` workflow：每个 PR 用 `kt spec validate` 校验
-  frontmatter schema、id 唯一性、parent 引用与状态转移。
-- main 为保护分支，只能经 PR 合入。
+- `Validate Specs` workflow：每个 PR 校验 frontmatter schema、id 唯一性、
+  parent 引用与状态转移合法性。校验器是 `.github/validator/` 内的镜像实现，
+  规则与 `kt-cli` 的 `kt spec validate` 一致（契约事实源在 playbook）；
+  组织级跨仓库凭据就绪后切回直接调用 `kt spec validate`。
+- main 为保护分支，只能经 PR 合入；`validate` 为 required check。
 
 ## 与仓库内 `.specs/` 的分工
 

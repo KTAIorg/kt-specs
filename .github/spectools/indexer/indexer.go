@@ -37,6 +37,7 @@ type Document struct {
 	Owner    string   `json:"owner"`
 	Created  string   `json:"created"`
 	Parent   *string  `json:"parent"` // 无 parent 时为 null
+	Goal     *int     `json:"goal"`   // 组织目标系统节点 id（动机轴上级），无则 null
 	Services []string `json:"services"`
 	Path     string   `json:"path"`     // 相对仓库根的路径，全文拉取用
 	Excerpt  string   `json:"excerpt"`  // 首段摘要 ≤200 runes
@@ -118,6 +119,7 @@ func BuildFromMap(files map[string]string, sourceCommit string) (*Index, []strin
 			Owner:    doc.Meta.Owner,
 			Created:  doc.Meta.Created,
 			Parent:   parent,
+			Goal:     doc.Meta.Goal,
 			Services: append([]string{}, doc.Meta.Services...),
 			Path:     path,
 			Excerpt:  ExtractExcerpt(doc.Body),

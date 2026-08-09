@@ -5,6 +5,7 @@ status: review
 owner: doudou
 created: 2026-08-09
 parent: SPEC-2026-0001
+goal: null
 services: [kt-agent-web, kt-specs]
 contracts: []
 ---
@@ -29,19 +30,24 @@ contracts: []
 
 ## 技术设计
 
-### 分层模型
+### 分层模型（两轴一面）
 
 ```text
-L0 模块层    按文档 frontmatter services 聚合（MVP）；P1 换 Backstage catalog
-L1 需求层    kind: spec
-L2 设计层    kind: plan（parent 指向 spec）
-L3 任务层    kind: tasks（parent 指向 plan）
-L4 验收层    kind: checklist / evidence（parent 指向 tasks/plan）
+动机轴   goal    组织目标系统节点（GoalDeck 目标树，非本仓文档），spec 经 goal 字段挂入
+         spec    kind: spec（顶层需求，goal 指向目标 id）
+执行轴   plan    kind: plan（parent 指向 spec）
+         tasks   kind: tasks（parent 指向 plan）
+         验收    kind: checklist / evidence（parent 指向 tasks/plan）
+视角轴   模块    按 frontmatter services 聚合（MVP）；P1 换 Backstage catalog
 ```
 
-树的边全部来自 frontmatter（`services`、`parent`），无独立维护的层级数据。
+动机轴的边来自 frontmatter `goal` 字段（回指组织目标系统节点 id，事实源在
+org 服务 `/org/goals`，SpecDeck 与 GoalDeck 共用同一棵目标树）；执行轴的边
+来自 `parent`；`services` 只做视角聚合，不做层级父亲。阅读顺序即结晶的逆序：
+先看目标（为什么做），再看 spec/plan/tasks/evidence（做了什么、做成了没）。
 无 parent 的文档挂在所属 service 模块下；跨多 service 的文档在每个模块下
-都出现（索引里记多份引用，正文只存一份）。
+都出现（索引里记多份引用，正文只存一份）。未填 goal 的文档在目标层归入
+「未挂目标」区，保证树中可达。
 
 ### spec-index.json schema（跨仓库合同）
 
@@ -68,6 +74,7 @@ L4 验收层    kind: checklist / evidence（parent 指向 tasks/plan）
       "owner": "doudou",
       "created": "2026-08-09",
       "parent": null,
+      "goal": null,                            // 组织目标系统节点 id，未挂为 null
       "services": ["kt-agent-web", "kt-specs"],
       "path": "requirements/specdeck-kt-agent-web.md",  // 全文拉取用
       "excerpt": "KT Spec Platform 已落地……",            // 首段摘要 ≤200 字
@@ -80,6 +87,8 @@ L4 验收层    kind: checklist / evidence（parent 指向 tasks/plan）
 规则：
 
 - `children` 由 CI 从各文档 `parent` 反解生成，消费方不再自行组树。
+- `goal` 原样透传 frontmatter，由消费方与组织目标树（`/org/goals`）联编；
+  索引不内嵌目标数据，目标事实源在 org 服务。
 - `path` 指向 raw 文档地址前缀 + 相对路径（托管 base URL 由消费方配置），
   焦点舱打开文档时按需拉全文，索引保持轻量。
 - schema version 字段用于未来不兼容变更的协商。

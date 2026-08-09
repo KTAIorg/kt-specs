@@ -14,6 +14,7 @@ status: review
 owner: doudou
 created: 2026-08-09
 parent: null
+goal: 123
 services: [svc-x, svc-y]
 contracts: []
 ---
@@ -121,6 +122,9 @@ func TestBuild(t *testing.T) {
 	if a.Parent != nil {
 		t.Fatal("顶层文档 parent 应为 null")
 	}
+	if a.Goal == nil || *a.Goal != 123 {
+		t.Fatalf("goal 应解析为 123: %+v", a.Goal)
+	}
 	if len(a.Children) != 1 || a.Children[0] != "PLAN-2026-0001" {
 		t.Fatalf("children 反解异常: %v", a.Children)
 	}
@@ -128,6 +132,9 @@ func TestBuild(t *testing.T) {
 	b := byID["PLAN-2026-0001"]
 	if b.Parent == nil || *b.Parent != "SPEC-2026-0001" {
 		t.Fatalf("parent 解析异常: %+v", b.Parent)
+	}
+	if b.Goal != nil {
+		t.Fatalf("未填 goal 的文档应为 null: %+v", b.Goal)
 	}
 }
 

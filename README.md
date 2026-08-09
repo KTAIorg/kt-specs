@@ -39,7 +39,7 @@ kt spec status SPEC-2026-0001 review
 ```text
 draft → review → approved → implementing → shipped
             ↘ rejected
-任何非终态 → cancelled
+draft/review/approved 均可 → cancelled
 ```
 
 - 评审 = PR review；**PR 合并即状态转移到 approved**（合并前把 status 改为目标态）。

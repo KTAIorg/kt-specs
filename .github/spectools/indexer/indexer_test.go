@@ -77,9 +77,12 @@ func fixtureDir(t *testing.T) string {
 }
 
 func TestBuild(t *testing.T) {
-	idx, err := Build([]string{fixtureDir(t)}, "abc1234")
+	idx, warns, err := Build([]string{fixtureDir(t)}, "abc1234")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(warns) != 1 || !strings.Contains(warns[0], "nofront.md") {
+		t.Fatalf("无 frontmatter 文档应产生警告: %v", warns)
 	}
 	if idx.Version != 1 || idx.SourceCommit != "abc1234" {
 		t.Fatalf("顶层字段异常: %+v", idx)
@@ -133,7 +136,7 @@ func TestBuildRejectsDuplicateID(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "requirements", "a.md"), specA)
 	writeFile(t, filepath.Join(dir, "requirements", "dup.md"),
 		strings.Replace(specA, "# Spec: 需求A", "# Spec: 重复", 1))
-	if _, err := Build([]string{dir}, ""); err == nil {
+	if _, _, err := Build([]string{dir}, ""); err == nil {
 		t.Fatal("重复 id 应报错")
 	}
 }
@@ -152,5 +155,37 @@ func TestExtractExcerptSkipsFenceAndTruncates(t *testing.T) {
 func TestExtractTitleFallback(t *testing.T) {
 	if got := ExtractTitle("没有标题的正文", "SPEC-2026-0099"); got != "SPEC-2026-0099" {
 		t.Fatalf("无标题应回退 id: %q", got)
+	}
+}
+
+func TestExtractExcerptMultilineParagraph(t *testing.T) {
+	body := "# 标题\n\n第一行，\n第二行同属首段。\n\n第二段不应进入摘要。\n"
+	got := ExtractExcerpt(body)
+	if !strings.Contains(got, "第一行") || !strings.Contains(got, "第二行同属首段") {
+		t.Fatalf("多行首段应完整累积: %q", got)
+	}
+	if strings.Contains(got, "第二段") {
+		t.Fatalf("不应越过空行: %q", got)
+	}
+}
+
+func TestBuildFromMapOrphanParentReachable(t *testing.T) {
+	files := map[string]string{
+		"requirements/a.md": specA,
+		"designs/orphan.md": strings.Replace(planB, "parent: SPEC-2026-0001", "parent: other-repo:SPEC-9999", 1),
+	}
+	idx, warns, err := BuildFromMap(files, "x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warns) != 0 {
+		t.Fatalf("不应有警告: %v", warns)
+	}
+	moduleDocs := map[string][]string{}
+	for _, m := range idx.Modules {
+		moduleDocs[m.ID] = m.Docs
+	}
+	if got := moduleDocs["svc-x"]; len(got) != 2 {
+		t.Fatalf("跨仓库 parent 的文档应作为顶层挂模块: %v", got)
 	}
 }

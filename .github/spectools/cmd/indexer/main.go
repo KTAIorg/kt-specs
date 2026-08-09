@@ -24,10 +24,13 @@ func main() {
 		fmt.Fprintln(os.Stderr, "用法: indexer [--out FILE] [--commit SHA] DIR...")
 		os.Exit(2)
 	}
-	idx, err := indexer.Build(flag.Args(), *commit)
+	idx, warnings, err := indexer.Build(flag.Args(), *commit)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "索引生成失败:", err)
 		os.Exit(1)
+	}
+	for _, w := range warnings {
+		fmt.Fprintln(os.Stderr, "[warning]", w)
 	}
 	data, err := json.MarshalIndent(idx, "", "  ")
 	if err != nil {

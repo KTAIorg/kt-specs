@@ -184,7 +184,11 @@ func IsSpecLocation(path string) bool {
 	return false
 }
 
-// HeadStatus 读取 git HEAD 版本中该文档的 status 字段；不可用时返回 ok=false。
+// HeadStatus 读取 git 基线版本中该文档的 status 字段；不可用时返回 ok=false。
+//
+// 基线选择：工作区内容与 HEAD 不一致时以 HEAD 为基线（本地未提交场景）；
+// 两者一致时（CI 检出后工作区恒等于 HEAD，检查会恒为空操作）回退 HEAD^1——
+// pull_request 的合并提交上即 base 侧，保证状态转移门禁在 CI 中真实生效。
 func HeadStatus(path string) (string, bool) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -200,11 +204,27 @@ func HeadStatus(path string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	data, err := exec.Command("git", "-C", root, "show", "HEAD:"+filepath.ToSlash(rel)).Output()
+	relSlash := filepath.ToSlash(rel)
+	working, err := os.ReadFile(path)
 	if err != nil {
 		return "", false
 	}
-	yamlText, ok := ExtractFrontmatter(string(data))
+	ref := "HEAD"
+	headBlob, ok := gitShow(root, relSlash, "HEAD")
+	if !ok {
+		return "", false // 新增文档，无既往状态可比对
+	}
+	if headBlob == string(working) {
+		if _, ok2 := gitShow(root, relSlash, "HEAD^1"); !ok2 {
+			return "", false
+		}
+		ref = "HEAD^1"
+	}
+	blob, ok := gitShow(root, relSlash, ref)
+	if !ok {
+		return "", false
+	}
+	yamlText, ok := ExtractFrontmatter(blob)
 	if !ok {
 		return "", false
 	}
@@ -213,6 +233,14 @@ func HeadStatus(path string) (string, bool) {
 		return "", false
 	}
 	return m.Status, true
+}
+
+func gitShow(root, rel, ref string) (string, bool) {
+	data, err := exec.Command("git", "-C", root, "show", ref+":"+rel).Output()
+	if err != nil {
+		return "", false
+	}
+	return string(data), true
 }
 
 // MarkdownFiles 递归收集路径下的 Markdown 文件，跳过依赖/模板/示例目录。

@@ -53,16 +53,17 @@ type Index struct {
 }
 
 // Build 扫描给定目录生成索引，路径规范化为相对扫描根的路径。
-func Build(paths []string, sourceCommit string) (*Index, error) {
+// 返回值 warnings 列出未入索引的文档（frontmatter 缺失或非法）。
+func Build(paths []string, sourceCommit string) (*Index, []string, error) {
 	files := map[string]string{}
 	for _, root := range paths {
 		list, err := meta.MarkdownFiles([]string{root})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		info, err := os.Stat(root)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		// 相对路径保留扫描根目录名（requirements/x.md 与 designs/x.md 不冲突）
 		base := root
@@ -78,7 +79,7 @@ func Build(paths []string, sourceCommit string) (*Index, error) {
 			}
 			data, err := os.ReadFile(f)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			files[filepath.ToSlash(rel)] = string(data)
 		}
@@ -88,22 +89,25 @@ func Build(paths []string, sourceCommit string) (*Index, error) {
 
 // BuildFromMap 从「仓库相对路径 -> 内容」集合构建索引；内存数据源
 // （如 spec-runtime 的 GitHub 拉取结果）直接使用，不落盘。
-func BuildFromMap(files map[string]string, sourceCommit string) (*Index, error) {
+// 返回值 warnings 列出未入索引的文档，消费方必须显式处理（不得静默丢弃）。
+func BuildFromMap(files map[string]string, sourceCommit string) (*Index, []string, error) {
 	keys := make([]string, 0, len(files))
 	for k := range files {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
+	var warnings []string
 	byID := map[string]*Document{}
 	var docs []*Document
 	for _, path := range keys {
 		doc, err := meta.ParseContent(path, files[path])
 		if err != nil || doc.Meta == nil || doc.Meta.ID == "" {
+			warnings = append(warnings, fmt.Sprintf("文档未入索引（frontmatter 缺失或非法）: %s", path))
 			continue
 		}
 		if _, dup := byID[doc.Meta.ID]; dup {
-			return nil, fmt.Errorf("id %q 重复，索引无法生成（先通过 validate 门禁）", doc.Meta.ID)
+			return nil, nil, fmt.Errorf("id %q 重复，索引无法生成（先通过 validate 门禁）", doc.Meta.ID)
 		}
 		parent := normalizeParent(doc.Meta.Parent)
 		d := &Document{
@@ -135,7 +139,10 @@ func BuildFromMap(files map[string]string, sourceCommit string) (*Index, error) 
 	moduleDocs := map[string][]string{}
 	for _, d := range docs {
 		if d.Parent != nil {
-			continue // 子文档经 children 下钻，不在模块层重复列出
+			if _, ok := byID[*d.Parent]; ok {
+				continue // 经父文档 children 下钻可达，不在模块层重复列出
+			}
+			// parent 不可解析（跨仓库引用或缺失）：按顶层文档挂模块，保证树中可达
 		}
 		services := d.Services
 		if len(services) == 0 {
@@ -145,7 +152,7 @@ func BuildFromMap(files map[string]string, sourceCommit string) (*Index, error) 
 			moduleDocs[svc] = append(moduleDocs[svc], d.ID)
 		}
 	}
-	var modules []Module
+	modules := make([]Module, 0, len(moduleDocs))
 	for id, docIDs := range moduleDocs {
 		sort.Strings(docIDs)
 		modules = append(modules, Module{ID: id, Title: id, Docs: docIDs})
@@ -165,7 +172,7 @@ func BuildFromMap(files map[string]string, sourceCommit string) (*Index, error) 
 		SourceCommit: sourceCommit,
 		Modules:      modules,
 		Documents:    outDocs,
-	}, nil
+	}, warnings, nil
 }
 
 func normalizeParent(parent string) *string {
@@ -217,8 +224,6 @@ func ExtractExcerpt(body string) string {
 			continue
 		}
 		paragraph = append(paragraph, trimmed)
-		// 只取第一个段落
-		break
 	}
 	text := strings.Join(paragraph, " ")
 	runes := []rune(text)

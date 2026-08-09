@@ -1,82 +1,63 @@
-<!--
-═══════════════════════════════════════════════════════════════════
-  用此模板创建新仓库后,请完成初始化,然后删除本注释块:
-  1. 全局替换 <项目名称> 与 TODO 占位
-  2. 填写 constitution.md(仓库定位/事实源/不可破坏边界)
-  3. 填写 docs/(至少 domain-glossary + development-guide)
-  4. 把 .specs/_example 与 contracts/_example.md 改成真实功能,或删除
-  5. 编辑 .github/CODEOWNERS(指定审核团队)
-  6. 按技术栈裁剪 .github/workflows/ci.yml 与 .gitignore
-  7. 确认 .github/copilot-instructions.md 符合本仓库语言与审查规则
-  8. 确认 LICENSE 与 SECURITY.md 联系方式
-  9. 删除本注释块
-═══════════════════════════════════════════════════════════════════
--->
+# kt-specs — KT 跨仓库需求与设计文档中央仓
 
-# <项目名称>
+KT 规格驱动开发（spec-driven）的中央文档仓：**跨仓库的需求文档与设计文档
+在这里统一管理**，仓库内部的需求/设计仍留在各业务仓的 `.specs/` 目录。
 
-> 一句话说明本仓库负责什么。TODO
+> 方法论事实源：[`KTAIorg/kt-spec-driven-playbook`](https://github.com/KTAIorg/kt-spec-driven-playbook)
+> 字段契约：[`docs/methodology/spec-frontmatter-schema.md`](https://github.com/KTAIorg/kt-spec-driven-playbook/blob/main/docs/methodology/spec-frontmatter-schema.md)
+> 平台 RFC：[`KTAIorg/kt-backstage` `.specs/kt-spec-platform/`](https://github.com/KTAIorg/kt-backstage/tree/main/.specs/kt-spec-platform)
 
-## 简介
+## 目录结构
 
-TODO: 背景、目标用户、核心能力、与其他仓库的关系。
+```text
+requirements/   跨仓库需求文档（kind: spec），平铺存放
+designs/        跨仓库设计文档（kind: plan），parent 指向需求 id
+adr/            本仓自身的架构决策记录
+```
 
-## 快速开始
+## 使用方式（唯一程序化写入口：kt CLI）
 
 ```bash
-# TODO: 安装依赖、运行、测试
+# 新增需求（自动分配 id，生成带 frontmatter 的模板）
+kt spec new spec --title "需求标题" --owner doudou --dir requirements --flat
+
+# 新增设计文档（parent 指向需求 id）
+kt spec new plan --title "方案标题" --owner doudou --parent SPEC-2026-0001 --dir designs --flat
+
+# 校验 schema / id 唯一性 / 状态转移合法性
+kt spec validate requirements designs
+
+# 查询
+kt spec list --status approved --json
+
+# 状态流转（只能沿状态机前进）
+kt spec status SPEC-2026-0001 review
 ```
 
-详见 [`docs/development-guide.md`](docs/development-guide.md)。
+## 状态机（PR 合并驱动）
 
-## 文档索引
+```text
+draft → review → approved → implementing → shipped
+            ↘ rejected
+任何非终态 → cancelled
+```
 
-本仓库遵循 **KT 规格驱动开发(spec-driven)** 方法论 —— AI Agent 与开发者在动代码前必须先读文档。
+- 评审 = PR review；**PR 合并即状态转移到 approved**（合并前把 status 改为目标态）。
+- CI 会校验状态转移合法性：禁止回退与跨级跳转。
+- 代码 PR 引用需求 id 时，该需求必须处于 approved 或更后状态。
 
-| 文档 | 作用 |
+## 门禁
+
+- `Validate Specs` workflow：每个 PR 校验 frontmatter schema、id 唯一性、
+  parent 引用与状态转移合法性。校验器是 `.github/validator/` 内的镜像实现，
+  规则与 `kt-cli` 的 `kt spec validate` 一致（契约事实源在 playbook）；
+  组织级跨仓库凭据就绪后切回直接调用 `kt spec validate`。
+- main 为保护分支，只能经 PR 合入；`validate` 为 required check。
+
+## 与仓库内 `.specs/` 的分工
+
+| 场景 | 存放位置 |
 | --- | --- |
-| [`AGENTS.md`](AGENTS.md) | AI Agent 工作规则(必读) |
-| [`constitution.md`](constitution.md) | 仓库定位、事实源、不可破坏边界 |
-| [`docs/domain-glossary.md`](docs/domain-glossary.md) | 领域术语与统一命名 |
-| [`docs/cross-repo-boundaries.md`](docs/cross-repo-boundaries.md) | 跨仓库职责边界 |
-| [`docs/development-guide.md`](docs/development-guide.md) | 本地开发、目录、命令 |
-| [`docs/testing-strategy.md`](docs/testing-strategy.md) | 测试层级与验收 |
-| [`docs/security-privacy.md`](docs/security-privacy.md) | 安全、脱敏、权限 |
-| [`docs/observability.md`](docs/observability.md) | 日志、trace、metrics |
-| [`docs/release-runbook.md`](docs/release-runbook.md) | 发布、灰度、回滚 |
-| [`docs/debugging-runbook.md`](docs/debugging-runbook.md) | 排查与诊断 |
-| [`contracts/`](contracts/) | API/事件/schema 合同 |
-| [`adr/`](adr/) | 架构决策记录 |
-| [`.specs/`](.specs/) | 功能级 spec/plan/tasks/checklist/evidence |
-
-## 功能开发流程
-
-每个重要功能在 `.specs/<feature>/` 下建立:
-
-```
-spec.md      做什么、不做什么、验收是什么
-  ↓
-plan.md      怎么做、影响哪些模块、如何回滚
-  ↓
-tasks.md     拆成可执行任务
-  ↓
-checklist.md 开发前/提交前/发布前检查
-  ↓
-evidence.md  验证命令、结果、残留风险
-```
-
-参考 [`.specs/_example/`](.specs/_example/)。
-
-## 贡献
-
-见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。代码审查由 Copilot 自动进行,输出简体中文。
-
-## 语言与 AI 协作约定
-
-- 文档、PR 描述、提交信息、变更说明、发布说明默认使用简体中文。
-- 代码标识符、API 路径、配置 key、环境变量、命令和第三方产品名称保留英文。
-- 仓库级 Copilot 指令位于 [`.github/copilot-instructions.md`](.github/copilot-instructions.md)，新仓库从模板创建后应保留并按领域补充。
-
-## 方法论来源
-
-完整规范: [`KTAIorg/kt-spec-driven-playbook`](https://github.com/KTAIorg/kt-spec-driven-playbook)
+| 跨多个仓库/服务的需求与设计 | 本仓 `requirements/`、`designs/` |
+| 单仓库内部功能 | 该仓库 `.specs/<feature>/` |
+| 跨仓库引用 | frontmatter `parent`/正文引用带仓库名前缀，如 `kt-specs:SPEC-2026-0001` |

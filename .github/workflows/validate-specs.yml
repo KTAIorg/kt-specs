@@ -1,0 +1,29 @@
+name: Validate Specs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # 状态转移校验需要对照 git HEAD 版本
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      # 校验规则镜像自 KTAIorg/kt-cli internal/spec（字段契约事实源在
+      # kt-spec-driven-playbook）。kt-cli 为私有仓且组织级跨仓库凭据未就绪，
+      # TODO: 待 kt-cli 发布链路/跨仓库凭据就绪后改回 `kt spec validate`。
+      - name: 校验 frontmatter schema 与状态转移
+        run: |
+          cd .github/validator
+          go run . "$GITHUB_WORKSPACE/requirements" "$GITHUB_WORKSPACE/designs"

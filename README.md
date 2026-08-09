@@ -49,9 +49,13 @@ draft → review → approved → implementing → shipped
 ## 门禁
 
 - `Validate Specs` workflow：每个 PR 校验 frontmatter schema、id 唯一性、
-  parent 引用与状态转移合法性。校验器是 `.github/validator/` 内的镜像实现，
-  规则与 `kt-cli` 的 `kt spec validate` 一致（契约事实源在 playbook）；
-  组织级跨仓库凭据就绪后切回直接调用 `kt spec validate`。
+  parent 引用与状态转移合法性。校验器是 `.github/spectools/cmd/validate`
+  的镜像实现，规则与 `kt-cli` 的 `kt spec validate` 一致（契约事实源在
+  playbook）；组织级跨仓库凭据就绪后切回直接调用 `kt spec validate`。
+- `publish-index` job：main 合并后由 `.github/spectools/cmd/indexer` 生成
+  `spec-index.json` artifact（审计/调试留痕）。SpecDeck 的线上数据源是
+  `kt-spec-runtime`（决策 B：runtime 直接拉取本仓文档构建索引，KT bearer
+  鉴权），schema 合同见 designs/PLAN-2026-0001。
 - main 为保护分支，只能经 PR 合入；`validate` 为 required check。
 
 ## 与仓库内 `.specs/` 的分工

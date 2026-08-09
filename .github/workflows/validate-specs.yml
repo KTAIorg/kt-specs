@@ -13,15 +13,15 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
         with:
           go-version: stable
       # TODO: KTAIorg/kt-cli#4 合入后，改回一行安装：
       #   go install github.com/KTAIorg/kt-cli/cmd/kt@main
       # 过渡期从 spec 分支源码构建，避免依赖未发版主分支。
       - name: 拉取 kt CLI 源码（过渡：spec 分支）
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: KTAIorg/kt-cli
           ref: feature/kt-spec-command

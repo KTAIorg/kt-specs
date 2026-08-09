@@ -17,7 +17,16 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: stable
-      - name: 从源码安装 kt CLI
-        run: go install github.com/KTAIorg/kt-cli/cmd/kt@main
+      # TODO: KTAIorg/kt-cli#4 合入后，改回一行安装：
+      #   go install github.com/KTAIorg/kt-cli/cmd/kt@main
+      # 过渡期从 spec 分支源码构建，避免依赖未发版主分支。
+      - name: 拉取 kt CLI 源码（过渡：spec 分支）
+        uses: actions/checkout@v5
+        with:
+          repository: KTAIorg/kt-cli
+          ref: feature/kt-spec-command
+          path: kt-cli-src
+      - name: 从源码构建 kt CLI
+        run: cd kt-cli-src && go build -o "$RUNNER_TEMP/kt" ./cmd/kt
       - name: 校验 frontmatter schema 与状态转移
-        run: kt spec validate requirements designs
+        run: "$RUNNER_TEMP/kt" spec validate requirements designs

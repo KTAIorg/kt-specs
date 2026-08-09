@@ -1,0 +1,93 @@
+# KT Rollout 标准模板（金丝雀 + 自动健康门）
+# 使用方式：替换 __SERVICE__ __NAMESPACE__ __IMAGE__ __PORT__ 后纳入 deploy/k8s-ack-prod/kustomization.yaml
+# 铁律：canary 必须有自动 promote 机制，禁止纯人工 pause（僵尸灰度教训：ktapi-file-istio 挂 12 天）
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: __SERVICE__
+  namespace: __NAMESPACE__
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: __SERVICE__
+  strategy:
+    canary:
+      # 权重流量版（需要配套 dr-vs.yaml：DestinationRule subsets + VirtualService）
+      # 注意：cluster argo-rollouts=v1.9 只支持 virtualService，httpRoute 需 >= v1.10
+      trafficRouting:
+        istio:
+          destinationRule:
+            name: __SERVICE__-dr
+            canarySubsetName: canary
+            stableSubsetName: stable
+          virtualService:
+            name: __SERVICE__-vs
+      maxSurge: 1
+      maxUnavailable: 0
+      steps:
+        - setCanaryScale:
+            replicas: 1
+        - setWeight: 5
+        - pause:
+            duration: 120
+        - analysis:
+            templates:
+              - templateName: kt-canary-health-gate
+        - setWeight: 25
+        - pause:
+            duration: 180
+        - analysis:
+            templates:
+              - templateName: kt-canary-health-gate
+        - setWeight: 50
+        - pause:
+            duration: 180
+        - analysis:
+            templates:
+              - templateName: kt-canary-health-gate
+        - setWeight: 100
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: __SERVICE__
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: __SERVICE__
+          image: __IMAGE__
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - containerPort: __PORT__
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: __PORT__
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: __PORT__
+            periodSeconds: 30
+            failureThreshold: 3

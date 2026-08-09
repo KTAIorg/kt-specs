@@ -1,0 +1,37 @@
+# KT 金丝雀健康门（AnalysisTemplate）
+# 机制：在 canary 命名空间起一次性 Job，对新版本 Service 的 /healthz + /readyz 做 HTTP 检查。
+# 全 200 → 自动进入下一档；失败 → Rollout 自动 abort 回滚到 stable，全程无人值守。
+# 后续升级：集群内 Prometheus 落地后，替换为 error-rate 指标门（见 docs/rollout-playbook.md）
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: kt-canary-health-gate
+  namespace: __NAMESPACE__
+spec:
+  metrics:
+    - name: healthz
+      interval: 15s
+      failureLimit: 2
+      provider:
+        job:
+          spec:
+            backoffLimit: 1
+            template:
+              spec:
+                restartPolicy: Never
+                containers:
+                  - name: probe
+                    image: curlimages/curl:8.5.0
+                    command:
+                      - sh
+                      - -c
+                      - |
+                        set -e
+                        curl -fsS --max-time 5 "http://__SERVICE__:__PORT__/healthz" >/dev/null
+                        curl -fsS --max-time 5 "http://__SERVICE__:__PORT__/readyz" >/dev/null
+                    securityContext:
+                      runAsNonRoot: true
+                      runAsUser: 100
+                      allowPrivilegeEscalation: false
+                      capabilities:
+                        drop: ["ALL"]

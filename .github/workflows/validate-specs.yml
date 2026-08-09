@@ -1,0 +1,23 @@
+name: Validate Specs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: 从源码安装 kt CLI
+        run: go install github.com/KTAIorg/kt-cli/cmd/kt@main
+      - name: 校验 frontmatter schema 与状态转移
+        run: kt spec validate requirements designs

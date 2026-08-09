@@ -28,16 +28,23 @@ AI Agent 接到任务后必须先阅读：
 
 ## 允许改动范围
 
-TODO
+- `requirements/*.md`、`designs/*.md`：通过 `kt spec` 命令生成与流转。
+- `adr/*`、`docs/*`、`README.md`、`constitution.md`：经 PR 评审后更新。
 
 ## 禁止改动范围
 
-TODO
+- 不得绕过 `kt spec` CLI 直接改写文档 frontmatter 的 `status` 字段。
+- 不得引入 playbook frontmatter 契约之外的字段或状态。
+- 不得修改 `.github/workflows/` 门禁逻辑来绕过校验。
 
 ## 常用命令
 
 ```bash
-TODO
+kt spec new spec --title "需求标题" --owner <你> --dir requirements --flat
+kt spec new plan --title "方案标题" --owner <你> --parent SPEC-YYYY-NNNN --dir designs --flat
+kt spec validate requirements designs
+kt spec list --status approved --json
+kt spec status <ID> <new-status>
 ```
 
 ## 提交前检查

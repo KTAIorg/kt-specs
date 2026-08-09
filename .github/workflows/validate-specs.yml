@@ -20,10 +20,33 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: stable
-      # 校验规则镜像自 KTAIorg/kt-cli internal/spec（字段契约事实源在
-      # kt-spec-driven-playbook）。kt-cli 为私有仓且组织级跨仓库凭据未就绪，
-      # TODO: 待 kt-cli 发布链路/跨仓库凭据就绪后改回 `kt spec validate`。
+      # 校验器为仓内实现（.github/spectools/cmd/validate），规则与
+      # kt-cli internal/spec 镜像，字段契约事实源在 kt-spec-driven-playbook。
       - name: 校验 frontmatter schema 与状态转移
         run: |
-          cd .github/validator
-          go run . "$GITHUB_WORKSPACE/requirements" "$GITHUB_WORKSPACE/designs"
+          cd .github/spectools
+          go run ./cmd/validate "$GITHUB_WORKSPACE/requirements" "$GITHUB_WORKSPACE/designs"
+
+  publish-index:
+    # main 合并后生成 spec-index.json（SpecDeck 数据源，合同见 PLAN-2026-0001）
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - name: 生成 spec-index.json
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          cd .github/spectools
+          go run ./cmd/indexer --out "$RUNNER_TEMP/spec-index.json" \
+            "$GITHUB_WORKSPACE/requirements" "$GITHUB_WORKSPACE/designs"
+      # 托管已按决策 B 落定：kt-spec-runtime 直接拉取 GitHub 文档并
+      # 进程内构建索引（前端数据源）。本 job 的 artifact 仅作审计/调试留痕。
+      - uses: actions/upload-artifact@v7
+        with:
+          name: spec-index
+          path: ${{ runner.temp }}/spec-index.json
